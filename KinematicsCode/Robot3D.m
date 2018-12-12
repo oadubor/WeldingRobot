@@ -6,48 +6,17 @@ classdef Robot3D
         dh_parameters
         LB
         UB
-        %link_lengths
-        %link_masses
-        %joint_masses
-        %end_effector_mass
+        grav_masses % joint masses for gravity compensation
+        ee_mass
+        rest_initial_thetas % joint config w/no gravity compensation
+        straight_initial_thetas
+        sine_initial_thetas
+        a_straight_initial_thetas
     end
     
     methods
         % Constructor: Makes a b rand new robot with the specified parameters.
-        function robot = Robot3D() % [a, alpha, d, theta]
-            % Make sure that all the parameters are what we're expecting.
-            % This helps catch typos and other lovely bugs.
-            %{
-            if size(link_lengths, 2) ~= 1
-               error('Invalid link_lengths: Should be a column vector, is %dx%d.', size(link_lengths, 1), size(link_lengths, 2));
-            end
-            
-            if size(link_masses, 2) ~= 1
-               error('Invalid link_masses: Should be a column vector, is %dx%d.', size(link_masses, 1), size(link_masses, 2));
-            end
-            
-            if size(joint_masses, 2) ~= 1
-               error('Invalid joint_masses: Should be a column vector.');
-            end
-            
-            if ~isnumeric(end_effector_mass)
-               error('Invalid end_effector_mass: Should be a number.'); 
-            end
-            %}            
-            %{
-            if size(link_masses, 1) ~= robot.dof
-                error('Invalid number of link masses: should match number of link lengths.');
-            end
-            
-            if size(joint_masses, 1) ~= robot.dof
-                error('Invalid number of joint masses: should match number of link lengths. Did you forget the base joint?');
-            end
-            
-            robot.link_lengths = link_lengths;
-            robot.link_masses = link_masses;
-            robot.joint_masses = joint_masses;
-            robot.end_effector_mass = end_effector_mass;  
-            %}
+        function robot = Robot3D() % [a, alpha, d, theta]            
             % Link Lengths
             a = 116.23/1000;
             b = 91.05/1000;
@@ -56,19 +25,28 @@ classdef Robot3D
             e = 94.05/1000;
             f = 279.5/1000;
             g = 57.4/1000;
-            h = 266.7/1000;
-            %initial_thetas = [0;0;0;0;0];
+            h = 266.7/1000;            
             % Store dh parameters
             robot.dh_parameters = [0, pi/2, a, 0;
-                                c, pi, b, 0;
-                                0, pi/2, d, pi/2;
-                                f, pi/2, e, pi/2;
-                                h, pi/2, g, 0];                             
-            robot.LB = [-pi/6; deg2rad(-15); -2*pi; -pi; -pi/6]; % lower bound for IK
-            robot.UB = [deg2rad(200); deg2rad(200); 2*pi; pi; pi/6]; % upper bound for IK            
+                                   c, pi, b, 0;
+                                   0, pi/2, d, pi/2;
+                                   f, pi/2, e, pi/2;
+                                   h, pi/2, g, 0];                             
+            robot.LB = [-pi/6; deg2rad(-15); -2*pi; -pi; -Inf]; % lower bound for IK
+            robot.UB = [deg2rad(200); deg2rad(200); 2*pi; pi; Inf]; % upper bound for IK            
+            %robot.LB = [-pi; -pi; -pi; -pi; -Inf]; % lower bound for IK
+            %robot.UB = [pi; pi; pi; pi; Inf]; % upper bound for IK            
             robot.dof = size(robot.dh_parameters, 1);
+            robot.ee_mass = 0; % additional mass to add to ee during demo
+            robot.grav_masses = [0; 1; 0; 0.8; 0.02 + robot.ee_mass]; % joint masses
+            % saved joint configurations FOR ROBOT B
+            robot.rest_initial_thetas = [-0.0489; 1.4914; 0.0701; 0.0363; -1.5853];            
+            robot.straight_initial_thetas =  [0.2624; 0.91; 1.1358; -0.065; 0.4091];
+            robot.sine_initial_thetas = [0.3485; 0.8325; 1.0702; -0.114; 0.5085];
+            % saved joint configurations FOR ROBOT A
+            robot.a_straight_initial_thetas = [0.3787; 0.9484; 1.0940; -0.0182; 0.4145];
         end
-       
+        
         % Returns the forward kinematic map for each frame, one for the base of
         % each link, and one for the end effector. Link i is given by
         % frames(:,:,i), and the end effector frame is frames(:,:,end).
@@ -80,8 +58,7 @@ classdef Robot3D
             if size(thetas, 1) ~= robot.dof
                 error('Invalid number of joints: %d found, expecting %d', size(thetas, 1), robot.dof);
             end
-            
-            
+                        
             % Allocate a variable containing the transforms from each frame
             % to the base frame.
             frames = zeros(4,4,robot.dof);
@@ -98,9 +75,7 @@ classdef Robot3D
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % homogeneous  rotation about z 
             H_rot_z = eye(4,4);
-            % calculate angles
-            %c_theta = cos(thetas(1));
-            %s_theta = sin(thetas(1));
+            % calculate angles            
             c_theta = cos(DH(4)+thetas(1));
             s_theta = sin(DH(4)+thetas(1));
             % save angles to array
@@ -221,18 +196,7 @@ classdef Robot3D
             for i = 1 : robot.dof
                 o_vector(:,i) = base_frames(1:3,4,i);
                 z_vector(:,i) = base_frames(1:3,3,i);                
-            end                                 
-            % loop through columns of jacobian for end effector frame
-            %for i = 1 : robot.do
-            %{
-            jacobians(1:3,1) = cross([0;0;1],(o_vector(:,6)-[0;0;0]));
-            jacobians(4:6,1) = [0;0;1];
-            for joint = 2 : robot.dof
-                jacobians(1:3,joint) = cross(z_vector(:,joint-1), ...
-                    (o_vector(:,6)-o_vector(:,joint-1)));                
-                jacobians(4:6,joint) = z_vector(:,joint-1);                
-            end
-            %}       
+            end                                                  
             
             for frame = 1 : length(base_frames) % loop through frames of robot
                 %jacobians(1:3,1,frame) = cross([0;0;1],(o_vector(:,frame)-[0;0;0]));
@@ -256,13 +220,12 @@ classdef Robot3D
 % --------------- END STUDENT SECTION ------------------------------------
         end
         
-        % Shorthand for returning the end effector position and orientation. 
+        % Shorthand for returning the end effector jacobian. 
         function ee_j = ee_jacobian(robot, thetas)
             J = robot.jacobians(thetas);
             ee_j = J(:,robot.dof);
         end
-        
-        
+                
         % Returns forces applied at end effector from joint torques
         function ee_forces = ee_forces(robot, thetas, torques)
             
@@ -281,10 +244,13 @@ classdef Robot3D
             ee_forces = -transpose(J)\torques;
         end
         
-        function c = cost(robot, thetas, goal_position) % IK Cost Function 
-                %c = -1*transpose(robot.ee_jacobian(thetas))*(robot.ee(thetas)-goal_position);
+        %{
+        function c = cost(robot, thetas, goal_position) % IK Cost Function                 
                 ee = robot.ee(thetas);
-                c = sum((ee(1:3)-goal_position(1:3)).^2); % ignores orientation
+                multiplier = 0.9;
+                ee_focus = [ee(1);ee(2);ee(3);multiplier*ee(4);multiplier*ee(5)];
+                %goal_position
+                c = sum((ee_focus-goal_position(1:5)).^2); % ignores orientation
         end
         
         function thetas = inverse_kinematics(robot, initial_thetas, goal_position)
@@ -305,7 +271,7 @@ classdef Robot3D
             
             thetas = fmincon(@(thetas) robot.cost(thetas,goal_position),...
                 initial_thetas,[],[],[],[],robot.LB,robot.UB); % found theta values
-
+        
 % --------------- END STUDENT SECTION ------------------------------------
         end
         
@@ -313,6 +279,7 @@ classdef Robot3D
         function ik = ik(robot, initial_thetas, goal_position)
             ik = robot.inverse_kinematics(initial_thetas, goal_position);
         end
+        %}
         
     end
 end
