@@ -38,7 +38,19 @@ classdef Robot3D
             %robot.UB = [pi; pi; pi; pi; Inf]; % upper bound for IK            
             robot.dof = size(robot.dh_parameters, 1);
             robot.ee_mass = 0; % additional mass to add to ee during demo
-            robot.grav_masses = [0; 1; 0; 0.8; 0.02 + robot.ee_mass]; % joint masses
+            % Make joint 2 heavier
+            
+            robot.grav_masses = [0; 0.65; 0.2; 0.8; 0.02 + robot.ee_mass]; % joint masses
+            
+            
+            %robot.grav_masses = [0; 0.57; 0.2; 0.8; 0.02 + robot.ee_mass]; % joint masses
+            %robot.grav_masses = [0; 0.7; 0; 0.8; 0.02 + robot.ee_mass]; % joint masses
+            
+            
+            %robot.grav_masses = [0; 0.4; 0; 0.8; 0.02 + robot.ee_mass]; % joint masses
+            %robot.grav_masses = [0; 0.8; 0.1; 0.8; 0.03 + robot.ee_mass]; % joint masses
+            
+            
             % saved joint configurations FOR ROBOT B
             robot.rest_initial_thetas = [-0.0489; 1.4914; 0.0701; 0.0363; -1.5853];            
             robot.straight_initial_thetas =  [0.2624; 0.91; 1.1358; -0.065; 0.4091];
