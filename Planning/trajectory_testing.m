@@ -94,19 +94,32 @@ grid on
 %}
 %% IK Straight Path Trajectory Testing
 initial_thetas = [0;0;0;0;0];
-setup_position = straight_waypoint_data(1,:)';
+%y_trajectory_offset = 
+x_approach_offset = -0.02+0.02;
+y_approach_offset = -0.02+0.02; % for approach, makes robot insert into path slowly
+z_approach_offset = 0.01-0.01;
+setup_position = straight_waypoint_data(1,:)' + [x_approach_offset; y_approach_offset; z_approach_offset]; % modify approach
 %setup_position = [0.1800;0.5;0.27];
 setup_position(4,1) = 1.68; % tune for pitch about y
 setup_position(5,1) = 0; % tune for yaw about x    
-approach_resolution = 5;
-trajectory_resolution = 10;
+approach_resolution = 30;
+trajectory_resolution =3;
 full_path = true;
 save_file = true;
-expand_waypoints = false;
+expand_waypoints = true;
+x_trajectory_offset = 0.02;
+y_trajectory_offset = -0.02;
+z_trajectory_offset = -0.06;
+
+
+setup_position = [0.2994; 0.8649; 1.0318; -0.1222; 0.4180];
+
+
 trajectory = planning.create_straight_trajectory(initial_thetas, ...
                     setup_position, 5, full_path, approach_resolution, ...
-                    trajectory_resolution, expand_waypoints, save_file);
-    
+                    trajectory_resolution, ...
+                    x_trajectory_offset, y_trajectory_offset, z_trajectory_offset,save_file);                
+
 straight_ee_positions = zeros(length(trajectory),3);
 for i = 1:length(trajectory)
     ee = robot.ee(trajectory(i,:)');
