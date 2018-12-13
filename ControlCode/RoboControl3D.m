@@ -24,9 +24,13 @@ classdef RobotControl3D
             control.robotB_name = 'Robot B';
             control.robot_joints = {'J1', 'J2', ...
                 'J3', 'J4', 'J5'};
-            control.robot_class = robot_class;            
-            control.kp_gains = [4 15 3 4 2];
-            %control.kp_gains = [4 13 3 6 2];
+            control.robot_class = robot_class; 
+            
+            
+            control.kp_gains = [4 15 3 10 2];
+            
+            
+            %control.kp_gains = [4 15 3 4 2];
             control.ki_gains = [0.1 2 0.1 0.1 0.01];
             control.kd_gains = [0.005 0.1 0.1 0.1 0]; 
             control.frequency = 100; % Hz
@@ -124,8 +128,8 @@ classdef RobotControl3D
             while true
                 % Read Robot feedback
                 fbk = robot.getNextFeedback(tmpFbk);
-                thetas = fbk.position; % get thetas   
-                control.robot_class.ee(thetas') % print ee position/orientation
+                thetas = fbk.position % get thetas   
+                control.robot_class.ee(thetas'); % print ee position/orientation
                 %return
                 for i = 1 : control.robot_class.dof                
                     torques(:,1,i) = control.get_joint_torques(...
@@ -134,8 +138,8 @@ classdef RobotControl3D
                 total_torque = sum(torques,3);                                              
                 %cmd.torque = total_torque'; % convert to row vector                                                
                 %cmd.position = control.robot_class.straight_initial_thetas';
-                cmd.position = desired_position';
-                %cmd.position = [0 1 0 0 0];
+                %cmd.position = desired_position';
+                %cmd.position = [0 0.5 0 0 0];
                 robot.set(cmd);
                 % Wait a little bit; here we'll cap command rates to 100Hz.
                 pause(0.1); % 100Hz frequency                
@@ -172,7 +176,7 @@ classdef RobotControl3D
             homingTime = 2;
             firstSafeTrajectory = repmat(initial_thetas, 1, homingTime*frequency);
             firstSafeTrajectory(2,:) = linspace(initial_thetas(2), homePosition(2), homingTime*frequency);
-            control.command_trajectory(robot, firstSafeTrajectory, frequency);
+            control.command_trajectory(robot, firstSafeTrajectory, frequency, false);
 
             % Move remaining joints to safe loacation
             % Get initial position
@@ -182,7 +186,7 @@ classdef RobotControl3D
             for i = 1:size(homePosition,1)
                 trajectory(i,:) = linspace(initial_thetas(i), homePosition(i), homingTime*frequency);
             end
-            control.command_trajectory(robot, trajectory, control.frequency);
+            control.command_trajectory(robot, trajectory, control.frequency, false);
         end
         
         function [] = command_trajectory(control, robot_hardware,...
@@ -203,7 +207,7 @@ classdef RobotControl3D
                 % points turns column into row vector for commands).
                 cmd.position = trajectory(i,:);
                 cmd.torque = control.trajectory_gravity_compensation(fbk.position');
-                cmd.velocity = trajectory_vel(i,:) * frequency;
+                %cmd.velocity = trajectory_vel(i,:) * frequency;
                 robot_hardware.set(cmd);
                 % Wait a little bit to send at ~100Hz.
                 pause(1 / frequency);
